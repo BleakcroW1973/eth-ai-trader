@@ -19,7 +19,7 @@ if not SECRET_KEY:
 st.set_page_config(page_title="AI Hedge Fund Engine", layout="wide", page_icon="🚀")
 st.title("🚀 Ethereum Dual-Brain AI Engine")
 
-run_mode = st.sidebar.radio("⚙️ Operation Mode", ["Backtest (CSV)", "Live Trading"])
+run_mode = st.sidebar.radio("⚙️ Operation Mode", ["Backtest (CSV)", "Live Trading"], index=1)
 st.sidebar.markdown("---")
 
 st.sidebar.markdown("### 🧠 AI Settings")
@@ -37,7 +37,7 @@ bear_sl_pct = st.sidebar.slider("Bear Stop-Loss (%)", 0.5, 10.0, 2.0, step=0.1) 
 
 if run_mode == "Live Trading":
     st.sidebar.markdown("### 💰 Live Execution Size")
-    trade_size_usdt = st.sidebar.number_input("Trade Size (USDT)", min_value=5.0, value=15.0, step=5.0)
+    trade_size_usdt = st.sidebar.number_input("Trade Size (USDT)", min_value=5.0, value=2000.0, step=5.0)
 
 
 # --- 2. Load BOTH AI Models ---
@@ -215,7 +215,7 @@ elif run_mode == "Live Trading":
         payload = {
             "asset_id": "01903bc9-973a-7106-99e2-08287b632806",  # Support-verified Asset ID
             "symbol": "ETHUSDT",
-            "leverage": "1",
+            "leverage": "2",
             "quantity": clean_qty_str,
             "order_price": "999999999",  # Required dummy price for Market orders
             "order_type": order_type,
