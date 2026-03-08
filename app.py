@@ -244,6 +244,19 @@ elif run_mode == "Live Trading":
             return False
 
 
+    def send_discord_alert(message):
+        """Pushes a live execution alert to your private Discord channel."""
+        webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
+        if not webhook_url:
+            return  # Silently skip if no URL is configured
+
+        payload = {"content": message}
+        try:
+            requests.post(webhook_url, json=payload)
+        except Exception as e:
+            print(f"❌ Discord Webhook Failed: {e}")
+
+
     def get_live_data():
         exchange = ccxt.kucoin()
         bars = exchange.fetch_ohlcv('ETH/USDT', timeframe='1h', limit=250)
@@ -304,6 +317,9 @@ elif run_mode == "Live Trading":
                         st.session_state.trade_log.append(
                             {'Time': current_time, 'Action': '🎯 TAKE-PROFIT', 'PnL': f"{current_pnl_pct * 100:.2f}%"})
                         st.session_state.position_type = None
+                        # 🛠️ DISCORD ALERT
+                        send_discord_alert(
+                            f"🎯 **TAKE-PROFIT HIT**\nClosed {close_action} at {current_pnl_pct * 100:.2f}% Profit!")
                         st.rerun()  # 🛠️ ADD THIS HERE
 
                 elif current_pnl_pct <= -active_sl:
@@ -311,6 +327,9 @@ elif run_mode == "Live Trading":
                         st.session_state.trade_log.append(
                             {'Time': current_time, 'Action': '🛑 STOP-LOSS', 'PnL': f"{current_pnl_pct * 100:.2f}%"})
                         st.session_state.position_type = None
+                        # 🛠️ DISCORD ALERT
+                        send_discord_alert(
+                            f"🛑 **STOP-LOSS TRIGGERED**\nClosed {close_action} at {current_pnl_pct * 100:.2f}% Loss. Risk managed.")
                         st.rerun()  # 🛠️ ADD THIS HERE
 
             # --- ENTRY LOGIC ---
@@ -328,6 +347,9 @@ elif run_mode == "Live Trading":
                         st.session_state.position_size = clean_eth_size
                         st.session_state.trade_log.append(
                             {'Time': current_time, 'Action': '🟢 OPEN LONG', 'PnL': '0.00%'})
+                        # 🛠️ DISCORD ALERT
+                        send_discord_alert(
+                            f"🟢 **OPEN LONG Executed**\n💰 Entry Price: ${current_price:,.2f}\n⚖️ Size: {clean_eth_size} ETH\n🤖 Bull Confidence: {bull_conf:.2%}")
                         st.rerun()  # 🛠️ ADD THIS HERE
 
                 elif bear_conf >= bear_conf_threshold and bear_conf > bull_conf:
@@ -337,6 +359,9 @@ elif run_mode == "Live Trading":
                         st.session_state.position_size = clean_eth_size
                         st.session_state.trade_log.append(
                             {'Time': current_time, 'Action': '🔴 OPEN SHORT', 'PnL': '0.00%'})
+                        # 🛠️ DISCORD ALERT
+                        send_discord_alert(
+                            f"🔴 **OPEN SHORT Executed**\n💰 Entry Price: ${current_price:,.2f}\n⚖️ Size: {clean_eth_size} ETH\n🤖 Bear Confidence: {bear_conf:.2%}")
                         st.rerun()  # 🛠️ ADD THIS HERE
 
             # --- UI RENDERING ---
