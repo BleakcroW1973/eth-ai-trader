@@ -1,2 +1,23 @@
 .streamlit/
 Binance_ETHUSDT_1h.csv
+# 🛑 SECURITY: Never upload test scripts or local keys
+test_ping.py
+.env
+secrets.toml
+
+# 🐍 Python Caches (Keeps the repo lightweight)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 📦 Virtual Environments (Render installs its own, don't upload yours)
+venv/
+env/
+.venv/
+
+# 🖥️ OS Generated Files
+.DS_Store
+Thumbs.db
+
+# 📊 Logs and temp data
+*.log
