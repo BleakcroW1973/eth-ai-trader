@@ -1,8 +1,8 @@
-streamlit==1.32.0
-ccxt==4.2.35
-pandas==2.2.1
-pandas-ta==0.3.14b0
-xgboost==2.0.3
-plotly==5.19.0
-requests==2.31.0
+streamlit
+ccxt
+pandas
+pandas-ta
+xgboost
+plotly
+requests
 scikit-learn
