@@ -37,7 +37,7 @@ bear_sl_pct = st.sidebar.slider("Bear Stop-Loss (%)", 0.5, 10.0, 2.0, step=0.1) 
 
 if run_mode == "Live Trading":
     st.sidebar.markdown("### 💰 Live Execution Size")
-    trade_size_usdt = st.sidebar.number_input("Trade Size (USDT)", min_value=5.0, value=2000.0, step=5.0)
+    trade_size_usdt = st.sidebar.number_input("Trade Size (USDT)", min_value=5.0, value=5500.0, step=5.0)
 
 
 # --- 2. Load BOTH AI Models ---
@@ -191,6 +191,54 @@ elif run_mode == "Live Trading":
     STEP_SIZE = 0.01
 
 
+    def sync_mudrex_position():
+        """Fetches active ETHUSDT position from Mudrex and restores Streamlit state."""
+        url = "https://trade.mudrex.com/fapi/v1/futures/ETHUSDT/position?is_symbol=true"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Authentication": os.environ.get("MUDREX_SECRET_KEY")
+        }
+
+        try:
+            response = requests.get(url, headers=headers)
+
+            if response.status_code in [200, 201, 202]:
+                data = response.json()
+
+                # FAPI endpoints typically return a list of assets or a nested dict
+                pos_data = data[0] if isinstance(data, list) else data.get("data", data)
+
+                # Common FAPI keys: 'positionAmt' or 'quantity', 'entryPrice' or 'avgPrice'
+                # Shorts are typically returned as negative floats (e.g., -0.010)
+                raw_size = float(pos_data.get("positionAmt", pos_data.get("quantity", 0.0)))
+                entry_price = float(pos_data.get("entryPrice", pos_data.get("avgPrice", 0.0)))
+
+                if raw_size > 0:
+                    st.session_state.position_type = "LONG"
+                    st.session_state.position_size = abs(raw_size)
+                    st.session_state.position_price = entry_price
+                    print(f"🔄 State Restored: LONG | Size: {abs(raw_size)} | Entry: {entry_price}")
+                elif raw_size < 0:
+                    st.session_state.position_type = "SHORT"
+                    st.session_state.position_size = abs(raw_size)
+                    st.session_state.position_price = entry_price
+                    print(f"🔄 State Restored: SHORT | Size: {abs(raw_size)} | Entry: {entry_price}")
+                else:
+                    print("🔄 State Restored: FLAT (No active positions)")
+
+            else:
+                print(f"❌ Position Sync Failed: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            print(f"❌ Network Error during Sync: {e}")
+
+
+    # 🛠️ THE STATE LOCK: Run the sync function exactly ONCE per session startup
+    if 'position_synced' not in st.session_state:
+        sync_mudrex_position()
+        st.session_state.position_synced = True
+
+        
     def format_quantity(amount, step):
         """Forces the quantity to be a perfect multiple of the exchange step size."""
         precision = int(-math.log10(step))
@@ -215,7 +263,7 @@ elif run_mode == "Live Trading":
         payload = {
             "asset_id": "01903bc9-973a-7106-99e2-08287b632806",  # Support-verified Asset ID
             "symbol": "ETHUSDT",
-            "leverage": "2",
+            "leverage": "3",
             "quantity": clean_qty_str,
             "order_price": "999999999",  # Required dummy price for Market orders
             "order_type": order_type,
