@@ -1,4 +1,5 @@
 xgboost
+scikit-learn
 pandas
 pandas-ta
 ccxt
