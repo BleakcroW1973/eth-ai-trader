@@ -1,8 +1,6 @@
-streamlit
-ccxt
+xgboost
 pandas
 pandas-ta
-xgboost
-plotly
+ccxt
 requests
-scikit-learn
+python-telegram-bot[job-queue]==21.0.1
