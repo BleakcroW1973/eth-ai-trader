@@ -127,7 +127,7 @@ def send_discord_alert(message):
         print(f"❌ Discord Webhook Failed: {e}")
 
 
-async def sync_mudrex_position(context: ContextTypes.DEFAULT_TYPE):
+async def sync_mudrex_position(app: Application):
     """Fetches active position from Mudrex and restores state."""
     url = "https://trade.mudrex.com/fapi/v1/futures/ETHUSDT/position?is_symbol=true"
     headers = {"Content-Type": "application/json", "X-Authentication": SECRET_KEY}
@@ -149,15 +149,15 @@ async def sync_mudrex_position(context: ContextTypes.DEFAULT_TYPE):
                 msg = "🔄 Sync Restored: FLAT (No active positions)"
 
             print(msg)
-            await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+            await app.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
     except Exception as e:
         print(f"❌ Sync Error: {e}")
 
 
 # --- 5. ASYNC BACKGROUND SCANNER ---
-async def market_scanner(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="🚀 Hedge Fund Engine Online & Scanning.")
-    await sync_mudrex_position(context)
+async def market_scanner(app: Application):
+    await app.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="🚀 Hedge Fund Engine Online & Scanning.")
+    await sync_mudrex_position(app)
 
     while True:
         try:
@@ -194,7 +194,7 @@ async def market_scanner(context: ContextTypes.DEFAULT_TYPE):
                         state.position_type = None
                         msg = f"🎯 **TAKE-PROFIT HIT**\nClosed {close_action} at {current_pnl_pct * 100:.2f}% Profit!"
                         send_discord_alert(msg)
-                        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+                        await app.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
                         await asyncio.sleep(5)  # Prevent rate limits before next loop iteration
                         continue
 
@@ -203,7 +203,7 @@ async def market_scanner(context: ContextTypes.DEFAULT_TYPE):
                         state.position_type = None
                         msg = f"🛑 **STOP-LOSS TRIGGERED**\nClosed {close_action} at {current_pnl_pct * 100:.2f}% Loss."
                         send_discord_alert(msg)
-                        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+                        await app.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
                         await asyncio.sleep(5)
                         continue
 
@@ -217,7 +217,7 @@ async def market_scanner(context: ContextTypes.DEFAULT_TYPE):
                         state.position_type, state.position_price, state.position_size = "LONG", current_price, clean_eth_size
                         msg = f"🟢 **OPEN LONG Executed**\n💰 Entry: ${current_price:,.2f}\n⚖️ Size: {clean_eth_size} ETH\n🤖 Bull Conf: {bull_conf:.2%}"
                         send_discord_alert(msg)
-                        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+                        await app.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
                         await asyncio.sleep(5)
                         continue
 
@@ -226,7 +226,7 @@ async def market_scanner(context: ContextTypes.DEFAULT_TYPE):
                         state.position_type, state.position_price, state.position_size = "SHORT", current_price, clean_eth_size
                         msg = f"🔴 **OPEN SHORT Executed**\n💰 Entry: ${current_price:,.2f}\n⚖️ Size: {clean_eth_size} ETH\n🤖 Bear Conf: {bear_conf:.2%}"
                         send_discord_alert(msg)
-                        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+                        await app.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
                         await asyncio.sleep(5)
                         continue
 
@@ -272,15 +272,20 @@ async def cmd_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔄 Forcing Mudrex Position Sync...")
-    await sync_mudrex_position(context)
+    await sync_mudrex_position(context.application)
 
 
 # --- 7. MAIN RUNNER ---
+async def post_init(app: Application):
+    """Native background task launcher. Bypasses JobQueue entirely."""
+    await asyncio.sleep(5) # Give the bot 5 seconds to boot
+    asyncio.create_task(market_scanner(app))
+
 def main():
-    # 🛠️ THE FIX: Increase connection tolerances to 30 seconds
     app = (
         Application.builder()
         .token(TELEGRAM_BOT_TOKEN)
+        .post_init(post_init) # 🛠️ THE NEW NATIVE LAUNCHER
         .connect_timeout(30.0)
         .read_timeout(30.0)
         .write_timeout(30.0)
@@ -294,13 +299,10 @@ def main():
     app.add_handler(CommandHandler("size", cmd_size))
     app.add_handler(CommandHandler("sync", cmd_sync))
 
-    # Start the scanner loop in the background
-    app.job_queue.run_once(market_scanner, 5)
+    # NOTE: We entirely deleted the app.job_queue.run_once() line
 
     print("📡 Connecting to Telegram...")
-    # 🛠️ THE FIX: Ignore old messages sent while the bot was offline
     app.run_polling(drop_pending_updates=True)
-
 
 if __name__ == "__main__":
     main()
